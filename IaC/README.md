@@ -1,5 +1,5 @@
 # Overview
-This directory contains the Infrastructure as Code implementation for the Coconut Meeting Summarization System. The IaC automates the provisioning and management of cloud resources required to run the meeting summarization service.
+This directory contains the Infrastructure as Code implementation for the Meeting Summarization System. The IaC automates the provisioning and management of cloud resources required to run the meeting summarization service.
 
 ## Architecture
 
@@ -119,51 +119,51 @@ This directory contains the Infrastructure as Code implementation for the Coconu
 
 ```bash
 git clone <repository-url>
-cd coconut-software-summarization-system/meeting-summarization/IaC
+cd summarAIzer/meeting-summarization/IaC
 ```
 
 ## Environment and Workspace Management
 
-# Initialize Terraform in your project directory
+### Initialize Terraform in your project directory
 ```bash
 terraform init
 ```
 
-# List existing workspaces (default workspace is created automatically)
+### List existing workspaces (default workspace is created automatically)
 ```bash
 terraform workspace list
 ```
 
-# Create new workspace
+### Create new workspace
 ```bash
 terraform workspace new {workspace-name}
 ```
 
-# Verify current workspace
+### Verify current workspace
 ```bash
 terraform workspace show
 ```
 
-# Switch between workspaces
+### Switch between workspaces
 ```bash
 terraform workspace select {workspace-name}
 ```
 
-# Initialize Terraform (if not done)
+### Initialize Terraform (if not done)
 ```bash
 terraform init
 ```
 
-# validate with development variables
+### validate with development variables
 ```bash
 terraform validate
 ```
 
-# Plan with development variables
+### Plan with development variables
 ```bash
 terraform plan
 ```
-# Apply development configuration
+### Apply development configuration
 ```bash
 terraform apply
 ```
