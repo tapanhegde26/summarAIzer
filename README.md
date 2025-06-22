@@ -167,3 +167,6 @@ terraform plan
 ```bash
 terraform apply
 ```
+
+## Read doc - Reference
+[Medium-link](https://medium.com/@hegdetapan2609/from-voice-to-insight-building-an-ai-powered-meeting-summariser-on-aws-7856c7bddb27)
