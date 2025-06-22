@@ -169,4 +169,4 @@ terraform apply
 ```
 
 ## Read doc - Reference
-[Medium-link](https://medium.com/@hegdetapan2609/from-voice-to-insight-building-an-ai-powered-meeting-summariser-on-aws-7856c7bddb27)
+[Article-link](https://www.linkedin.com/pulse/from-voice-insight-building-ai-powered-meeting-summariser-tapan-hegde-br45c/?trackingId=CiwHXWNJgr6YmcHCbOxzSw%3D%3D)
