@@ -1,0 +1,95 @@
+version: 2.1
+
+# bring in aws-cli
+orbs:
+  aws-cli: circleci/aws-cli@5.3.2
+
+executors:
+  terraform:
+    docker:
+      - image: hashicorp/terraform
+
+
+commands:
+  terraform-setup:
+    description: "Configure AWS credentials from OIDC and initialize Terraform"
+    steps:
+      - checkout
+      - aws-cli/setup:
+          role_arn: 'arn:aws:iam::355366859697:role/circleci'
+      - run:
+          name: Terraform Init
+          command: cd IaC && terraform init
+
+  
+# Define jobs
+jobs:
+  terraform_fmt:
+    executor: terraform
+    steps:
+      - terraform-setup
+      - run:
+          name: Terraform Format
+          command: cd IaC; terraform fmt -check -recursive --diff
+
+  terraform_validate:
+    executor: terraform
+    steps:
+      - terraform-setup
+      - run:
+          name: Terraform Validate
+          command: cd IaC; terraform validate
+
+  terraform_plan:
+    executor: terraform
+    steps:
+      - terraform-setup
+      - run:
+          name: Terraform Plan
+          command: cd IaC; terraform plan -out=tfplan
+  
+  terraform_apply:
+    executor: terraform
+    steps: 
+      - terraform-setup
+      - run:
+          name: Terraform Apply
+          command: cd IaC; terraform apply
+  
+
+
+# Orchestrate jobs using workflows
+workflows:
+  validate-iac-workflow: 
+    when:
+      and:
+        - not:
+            equal: [ main, << pipeline.git.branch >> ]
+
+    jobs:
+      - terraform_fmt:
+          context: caylent
+      - terraform_validate:
+          context: caylent
+          requires:
+            - terraform_fmt
+      - terraform_plan:
+          context: caylent
+          requires:
+            - terraform_validate
+
+  plan-and-apply:
+    jobs:
+      - terraform_plan:
+          context: caylent
+          filters:
+            branches:
+              only: main
+      - hold:
+          type: approval
+          requires:
+            - terraform_plan
+      - terraform_apply:
+          context: caylent
+          requires:
+            - hold  

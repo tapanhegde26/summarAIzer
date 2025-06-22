@@ -1,0 +1,157 @@
+{
+  "Comment": "Transcribe audio, generate prompt, invoke Bedrock, store response",
+  "StartAt": "ParsePayloadLambda",
+  "States": {
+    "ParsePayloadLambda": {
+      "Type": "Task",
+      "Resource": "${parser_lambda_arn}",
+      "Next": "StartTranscriptionJob",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleError"
+        }
+      ]
+    },
+    "StartTranscriptionJob": {
+      "Type": "Task",
+      "Parameters": {
+        "TranscriptionJobName.$": "States.Format('redacted-{}',$.guid)",
+        "Media": {
+          "MediaFileUri.$": "$.s3_url"
+        },
+        "OutputBucketName": "${transcript_bucket}",
+        "LanguageCode": "en-US",
+        "Settings": {
+          "VocabularyName": "FinancialTerms"
+        }
+      },
+      "Resource": "arn:aws:states:::aws-sdk:transcribe:startTranscriptionJob",
+      "ResultPath": "$.transcriptionJob",
+      "Next": "WaitForTranscription",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.errorDetails",
+          "Next": "HandleError"
+        }
+      ]
+    },
+    "WaitForTranscription": {
+      "Type": "Wait",
+      "Seconds": 30,
+      "Next": "CheckTranscriptionStatus"
+    },
+    "CheckTranscriptionStatus": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:transcribe:getTranscriptionJob",
+      "Parameters": {
+        "TranscriptionJobName.$": "$.transcriptionJob.TranscriptionJob.TranscriptionJobName"
+      },
+      "Next": "IsTranscriptionComplete",
+      "ResultPath": "$.transcriptionStatus",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.errorDetails",
+          "Next": "HandleError"
+        }
+      ]
+    },
+    "IsTranscriptionComplete": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.transcriptionStatus.TranscriptionJob.TranscriptionJobStatus",
+          "StringEquals": "COMPLETED",
+          "Next": "PreparePrompt"
+        },
+        {
+          "Variable": "$.transcriptionStatus.TranscriptionJob.TranscriptionJobStatus",
+          "StringEquals": "FAILED",
+          "Next": "TranscriptionFailed"
+        }
+      ],
+      "Default": "WaitForTranscription"
+    },
+    "PreparePrompt": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${prompt_builder_lambda_arn}",
+        "Payload": {
+          "Records": [
+            {
+              "s3": {
+                "bucket": {
+                  "name": "${transcript_bucket}"
+                },
+                "object": {
+                  "key.$": "States.Format('{}.json', $.transcriptionJob.TranscriptionJob.TranscriptionJobName)"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "ResultPath": "$.promptOutput",
+      "Next": "IsPromptSuccessful",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.errorDetails",
+          "Next": "HandleError"
+        }
+      ]
+    },
+    "IsPromptSuccessful": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.promptOutput.Payload.statusCode",
+          "NumericEquals": 200,
+          "Next": "GenerateSummary"
+        }
+      ],
+      "Default": "PromptFailed"
+    },
+    "PromptFailed": {
+      "Type": "Fail",
+      "Cause": "Prompt building failed",
+      "Error": "PromptBuilderLambdaError"
+    },
+    "GenerateSummary": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${summary_generator_lambda_arn}",
+        "Payload": {
+          "prompt.$": "$.promptOutput.Payload.prompt",
+          "original_key.$": "$.promptOutput.Payload.source_key"
+        }
+      },
+      "ResultPath": "$.summaryResult",
+      "Next": "Success",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.errorDetails",
+          "Next": "HandleError"
+        }
+      ]
+    },
+    "TranscriptionFailed": {
+      "Type": "Fail",
+      "Cause": "Transcription job failed",
+      "Error": "TranscriptionJobFailedError"
+    },
+    "HandleError": {
+      "Type": "Fail",
+      "Cause": "Step failed with captured error",
+      "Error": "States.StringFormat('Error: {}, Cause: {}', $.errorDetails.Error, $.errorDetails.Cause)"
+    },
+    "Success": {
+      "Type": "Succeed"
+    }
+  }
+}
